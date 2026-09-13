@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html>
+   <head>
+      <title>Hangman</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <style>
+         @import url("https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap");
+         @import url(style.css);
+         body {
+         font-family: "Roboto Mono", monospace;
+         background-color: white;
+         }
+         .center {
+         justify-content: center;
+         text-align: center;
+         }
+         .guessbox {
+         margin-top: 30px;
+         width: 182px;
+         height: 78px;
+         font-size: 32px;
+         }
+         .wrongguesses {
+         color: red;
+         font-size: 32px;
+         }
+         .lives {
+         color: red;
+         font-size: 32px;
+         }
+         .rightguesses {
+         font-size: 32px;
+         }
+         dialog {
+         position: fixed;
+         inset: 0;
+         margin: auto;
+         padding:5px;
+         }
+         pre {
+         font-size: 32px;
+         background-color: var(--bg);
+         border-color: var(--bg);
+         }
+         h1 {
+         text-align: center;
+         font-size: 32px;
+         }
+      </style>
+   </head>
+   <body>
+      <h1>Hangman</h1>
+      <dialog id="phrasePrompt" open>
+         <input type="text" id="phrase" placeholder="Word/Phrase" autofocus />
+         <form method="dialog">
+            <button type="button" onclick="getUserPhrase()">Enter</button>
+         </form>
+      </dialog>
+      <div id="center" class="center">
+      </div>
+   </body>
+
+   <script>
+      var correctPhrase = "";
+      var listOfWrongLetters = [];
+      var listOfRightLetters = [];
+      var lifeCounter = 0;
+      var lifeCounterMax = 7;
+      var wonGame = false;
+
+      // When page loads focus on the phrase box to type in the phrase for the program
+      window.onload = function () {
+        document.getElementById("phrase").focus();
+      }
+
+      // Get the user's phrase for the hangman, make it capital so user doesn't have to worry about capitalization, setup the game, then start game loop
+      function getUserPhrase() {
+        correctPhrase = document.getElementById("phrase").value.toUpperCase();
+        console.log(correctPhrase);
+        document.getElementById("phrasePrompt").close();
+        setupGame();
+        gameLoop();
+      }
+
+      function waitForKeyPress(element, key) {
+        return new Promise((resolve) => {
+          const onKeyHandler = (event) => {
+            if (event.key === key) {
+              element.removeEventListener("keydown", onKeyHandler);
+              resolve(event);
+            }
+          };
+          element.addEventListener("keydown", onKeyHandler);
+        });
+      }
+      
+      async function getUserGuess() {
+        var inputElement = document.getElementById("guess");
+      
+        inputElement.focus(); // Set focus to the input box
+        var event = await waitForKeyPress(inputElement, "Enter");
+      
+        var value = inputElement.value.toUpperCase();
+        console.log("Guess: ", value);
+        inputElement.value = "";
+        return value;
+      }
+      async function gameLoop() {
+        while ((startGame = true)) {
+          if (wonGame == true) {
+            console.log("Won Game");
+            console.log("Correct Word: " + correctPhrase);
+            document.getElementById("right_guesses").innerHTML =
+              "Correct Word: " + correctPhrase;
+            wonHangman();
+            document.getElementById("guess").remove();
+      
+            break;
+          }
+          if (lifeCounter == lifeCounterMax) {
+            showLivesCounter();
+            console.log("Lost Game");
+            console.log("Correct Word: " + correctPhrase);
+            document.getElementById("right_guesses").innerHTML =
+              "Correct Word: " + correctPhrase;
+            showHangman(wonGame, lifeCounter);
+            break;
+          }
+          showLivesCounter();
+          showWrongGuesses();
+          showHangman(wonGame, lifeCounter);
+      
+          showPhraseProgress(correctPhrase, listOfRightLetters);
+      
+          var userInput = await getUserGuess();
+      
+          checkLetter(userInput);
+          checkIfWonGame(listOfRightLetters, correctPhrase);
+        }
+      }
+      
+      function showWrongGuesses() {
+        replaceInnerHTML("wrong_guesses", listOfWrongLetters);
+      }
+
+      function showLivesCounter() {
+        var howManyHearts = lifeCounterMax - lifeCounter;
+        document.getElementById("lives").innerHTML = "";
+        for (var i = 0; i < howManyHearts; i++) {
+          document.getElementById("lives").innerHTML += " ♥︎ ";
+        }
+      }
+      function showPhraseProgress(word, correctLetters) {
+        var underscoredLines = [];
+        var correctWord = word.split("");
+        for (var i = 0; i < correctWord.length; i++) {
+          if (correctLetters.includes(correctWord[i])) {
+            underscoredLines.push(" " + correctWord[i] + " ");
+          } else if (correctWord[i] == " ") {
+            underscoredLines.push(" / ");
+          } else if (!correctLetters.includes(correctWord[i])) {
+            underscoredLines.push(" _ ");
+          }
+        }
+        document.getElementById("right_guesses").innerHTML = "";
+        for (var i = 0; i < underscoredLines.length; i++) {
+          console.log(underscoredLines[i]);
+          document.getElementById("right_guesses").innerHTML +=
+            underscoredLines[i];
+        }
+      }
+      
+      // List to take input and check if it is in the phrase
+      function checkLetter(input) {
+        if (input == correctPhrase) {
+          wonGame = true;
+        }
+      
+        if (correctPhrase.includes(input) && input.length == 1) {
+          listOfRightLetters.push(input);
+        } else {
+          listOfWrongLetters.push(input);
+          lifeCounter += 1;
+        }
+      }
+      function replaceInnerHTML(id, text) {
+        document.getElementById(id).innerHTML = text;
+      }
+      
+      // Function to check if user won if all the correct words match the correct word
+      function checkIfWonGame(listOfRightLetters, correctWord) {
+        var correctWord = correctWord.replace(/\s+/g, "");
+        // Set removes duplicates
+        var guessedSet = new Set(listOfRightLetters);
+        var targetSet = new Set(correctWord);
+      
+        var ifTrueWon = [...targetSet].every((letter) => guessedSet.has(letter));
+        if (ifTrueWon == true) {
+          wonGame = true;
+        }
+      }
+      function setupGame(){
+        replaceInnerHTML("center",`
+      <div id="hangman">
+          <pre>
+      +---+
+      |   |
+        |
+        |
+        |
+        |
+      =========
+      </pre
+          >
+        </div>
+        <div class="lives" id="lives"></div>
+      
+        <div class="wrongguesses" id="wrong_guesses"></div>
+        <div class="rightguesses" id="right_guesses"></div>
+        <input class="guessbox" type="text" id="guess" />`);
+      }
+      function showHangman(wonGame, lifeCounter) {
+        let stage = "";
+      
+        switch (lifeCounter) {
+          case 0:
+            stage = `
+      <pre>
+      +---+
+      |   |
+        |
+        |
+        |
+        |
+      =========
+      </pre>`;
+            break;
+      
+          case 1:
+            stage = `
+      <pre>
+      +---+
+      |   |
+      O   |
+        |
+        |
+        |
+      =========
+      </pre>`;
+            break;
+      
+          case 2:
+            stage = `
+      <pre>
+      +---+
+      |   |
+      O   |
+      |   |
+        |
+        |
+      =========
+      </pre>`;
+            break;
+      
+          case 3:
+            stage = `
+      <pre>
+      +---+
+      |   |
+      O   |
+      /|   |
+        |
+        |
+      =========
+      </pre>`;
+            break;
+      
+          case 4:
+            stage = `
+      <pre>
+      +---+
+      |   |
+      O   |
+      /|\\  |
+        |
+        |
+      =========
+      </pre>`;
+            break;
+      
+          case 5:
+            stage = `
+      <pre>
+      +---+
+      |   |
+      O   |
+      /|\\  |
+      /    |
+        |
+      =========
+      </pre>`;
+            break;
+      
+          case 6:
+            stage = `
+      <pre>
+      +---+
+      |   |
+      O   |
+      /|\\  |
+      / \\  |
+        |
+      =========
+      </pre>`;
+            break;
+      
+          case 7:
+            stage = `
+      <pre>
+      +---+
+      |   |
+      [O]  |
+      /|\\  |
+      / \\  |
+        |
+      =========
+      </pre>`;
+            break;
+        }
+      
+        replaceInnerHTML("hangman", stage);
+      }
+      
+      function wonHangman() {
+        replaceInnerHTML(
+          "hangman",
+          `<pre>
+      +---+
+      |   |
+        |
+      O   |
+      /|\\  |
+      / \\  |
+      =========
+      </pre>`
+        );
+      }
+   </script>
+</html>
